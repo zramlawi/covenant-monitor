@@ -48,7 +48,7 @@ def load_data(uploaded_file):
     if len(data) < 3:
         st.error("Upload at least three monthly observations.")
         return None
-            return data.rename(columns={"month": "period"}).rename(columns={"month": "period"})
+    return data.rename(columns={"month": "period"})
 
 
 def calculate_metrics(data):
@@ -113,8 +113,7 @@ def breach_text(frame, leverage_limit, coverage_minimum):
         reasons.append(f"net leverage of {first['net_leverage']:.2f}x exceeds the {leverage_limit:.2f}x limit")
     if first["interest_coverage"] < coverage_minimum:
         reasons.append(f"interest coverage of {first['interest_coverage']:.2f}x is below the {coverage_minimum:.2f}x minimum")
-    return f"Projected breach in {first['month'].strftime('%B %Y')}: " + "; ".join(reasons) + "."
-
+return f"Projected breach in {first['period'].strftime('%B %Y')}: " + "; ".join(reasons) + "."
 
 st.title("Covenant Monitor")
 st.caption("Upload standardized monthly financials to assess leverage, liquidity, and debt-covenant risk.")
