@@ -48,7 +48,7 @@ def load_data(uploaded_file):
     if len(data) < 3:
         st.error("Upload at least three monthly observations.")
         return None
-    return data
+            return data.rename(columns={"month": "period"}).rename(columns={"month": "period"})
 
 
 def calculate_metrics(data):
@@ -86,7 +86,7 @@ def forecast(data, revenue_growth, margin_change_bps, ar_days_change, months=6):
         ttm_ebitda = sum((history_ebitda + [row["ebitda"] for row in rows] + [ebitda])[-12:])
         ttm_interest = interest * min(12, len(data) + step)
         rows.append({
-            "month": latest["month"] + pd.offsets.MonthEnd(step),
+            "period": latest["period"] + pd.offsets.MonthEnd(step),
             "revenue": revenue,
             "ebitda": ebitda,
             "cash": cash,
@@ -162,7 +162,7 @@ left_chart, right_chart = st.columns(2)
 with left_chart:
     figure = go.Figure()
     for name, frame in scenario_frames.items():
-        figure.add_trace(go.Scatter(x=frame["month"], y=frame["net_leverage"], mode="lines+markers", name=name))
+        figure.add_trace(go.Scatter(x=frame["period"], y=frame["net_leverage"], mode="lines+markers", name=name))
     figure.add_hline(y=leverage_limit, line_dash="dash", line_color="red", annotation_text="Leverage covenant")
     figure.update_layout(title="Net leverage forecast", yaxis_title="x", xaxis_title="Month")
     st.plotly_chart(figure, use_container_width=True)
@@ -170,7 +170,7 @@ with left_chart:
 with right_chart:
     figure = go.Figure()
     for name, frame in scenario_frames.items():
-        figure.add_trace(go.Scatter(x=frame["month"], y=frame["interest_coverage"], mode="lines+markers", name=name))
+        figure.add_trace(go.Scatter(x=frame["period"], y=frame["interest_coverage"], mode="lines+markers", name=name))
     figure.add_hline(y=coverage_minimum, line_dash="dash", line_color="red", annotation_text="Coverage covenant")
     figure.update_layout(title="Interest coverage forecast", yaxis_title="x", xaxis_title="Month")
     st.plotly_chart(figure, use_container_width=True)
