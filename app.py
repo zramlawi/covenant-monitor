@@ -183,11 +183,11 @@ uploaded_file = st.file_uploader(
     type="csv",
 )
 if uploaded_file is None:
-st.info(
-    "Use `sample_data/summit_facility_services.csv` for monthly data or "
-    "`sample_data/summit_facility_services_quarterly.csv` for quarterly data."
-)
-st.stop()
+    st.info(
+        "Use `sample_data/summit_facility_services.csv` for monthly data or "
+        "`sample_data/summit_facility_services_quarterly.csv` for quarterly data."
+    )
+    st.stop()
 
 data, frequency = load_data(uploaded_file)
 if data is None:
@@ -224,8 +224,12 @@ with left_chart:
     for name, frame in scenario_frames.items():
         figure.add_trace(go.Scatter(x=frame["period"], y=frame["net_leverage"], mode="lines+markers", name=name))
     figure.add_hline(y=leverage_limit, line_dash="dash", line_color="red", annotation_text="Leverage covenant")
-    figure.update_layout(title="Net leverage forecast", yaxis_title="x", xaxis_title=period_name)
-    st.plotly_chart(figure, use_container_width=True)
+figure.update_layout(
+    title="Interest coverage forecast",
+    yaxis_title="x",
+    xaxis_title=period_name,
+)
+st.plotly_chart(figure, use_container_width=True)
 
 with right_chart:
     figure = go.Figure()
