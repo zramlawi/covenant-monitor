@@ -160,8 +160,10 @@ def breach_text(frame, leverage_limit, coverage_minimum):
     return f"Projected breach in {first['period'].strftime('%B %Y')}: " + "; ".join(reasons) + "."
 
 st.title("Covenant Monitor")
-st.caption("Upload standardized monthly financials to assess leverage, liquidity, and debt-covenant risk.")
-
+st.caption(
+    "Upload standardized monthly or quarterly financials to assess leverage, "
+    "liquidity, and debt-covenant risk."
+)
 with st.sidebar:
     st.header("Covenant assumptions")
     leverage_limit = st.number_input("Maximum net leverage (x)", min_value=1.0, max_value=15.0, value=4.75, step=0.25)
@@ -176,10 +178,16 @@ with st.sidebar:
     recovery_margin = st.number_input("Recovery EBITDA margin change (bps)", value=150, step=25)
     ar_days_change = st.number_input("Downside A/R days increase", value=15.0, step=1.0)
 
-uploaded_file = st.file_uploader("Upload monthly financials CSV", type="csv")
+uploaded_file = st.file_uploader(
+    "Upload monthly or quarterly financials CSV",
+    type="csv",
+)
 if uploaded_file is None:
-    st.info("Use the included sample_data/summit_facility_services.csv file to explore the app.")
-    st.stop()
+st.info(
+    "Use `sample_data/summit_facility_services.csv` for monthly data or "
+    "`sample_data/summit_facility_services_quarterly.csv` for quarterly data."
+)
+st.stop()
 
 data, frequency = load_data(uploaded_file)
 if data is None:
@@ -196,15 +204,18 @@ downside = forecast(
     ar_days_change,
 )
 recovery = forecast(metrics, frequency, recovery_growth, recovery_margin, 0)
+period_name = "Quarter" if frequency == "quarterly" else "Month"
+trailing_label = "LTM" if frequency == "quarterly" else "TTM"
+forecast_length = len(base)
 
 st.subheader("Current position")
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Revenue", format_money(latest["revenue"]))
-col2.metric("TTM EBITDA", format_money(latest["ttm_ebitda"]))
+col2.metric(f"{trailing_label} EBITDA", format_money(latest["ttm_ebitda"]))
 col3.metric("Net leverage", format_multiple(latest["net_leverage"]), f"Headroom: {leverage_limit - latest['net_leverage']:.2f}x")
 col4.metric("Interest coverage", format_multiple(latest["interest_coverage"]), f"Headroom: {latest['interest_coverage'] - coverage_minimum:.2f}x")
 
-st.subheader("Scenario outlook")
+st.subheader(f"Scenario outlook: next {forecast_length} {period_name.lower()}s")
 scenario_frames = {"Base": base, "Downside": downside, "Recovery": recovery}
 
 left_chart, right_chart = st.columns(2)
@@ -213,7 +224,7 @@ with left_chart:
     for name, frame in scenario_frames.items():
         figure.add_trace(go.Scatter(x=frame["period"], y=frame["net_leverage"], mode="lines+markers", name=name))
     figure.add_hline(y=leverage_limit, line_dash="dash", line_color="red", annotation_text="Leverage covenant")
-    figure.update_layout(title="Net leverage forecast", yaxis_title="x", xaxis_title="Month")
+    figure.update_layout(title="Net leverage forecast", yaxis_title="x", xaxis_title=period_name)
     st.plotly_chart(figure, use_container_width=True)
 
 with right_chart:
@@ -253,6 +264,9 @@ st.download_button(
     mime="text/plain",
 )
 
-with st.expander("Required CSV schema"):
+with st.expander("Required CSV schemas"):
+    st.markdown("**Monthly**")
     st.code("month,revenue,ebitda,cash,total_debt,interest_expense,accounts_receivable")
+    st.markdown("**Quarterly**")
+    st.code("period_end,revenue,ebitda,cash,total_debt,interest_expense,accounts_receivable")
     st.dataframe(data, use_container_width=True)
