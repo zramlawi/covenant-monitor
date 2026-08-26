@@ -165,7 +165,7 @@ st.caption(
     "liquidity, and debt-covenant risk."
 )
 with st.sidebar:
-    st.header("Covenant assumptions")
+        st.header("Scenario assumptions")
     leverage_limit = st.number_input("Maximum net leverage (x)", min_value=1.0, max_value=15.0, value=4.75, step=0.25)
     coverage_minimum = st.number_input("Minimum interest coverage (x)", min_value=0.5, max_value=10.0, value=2.00, step=0.25)
 
@@ -268,13 +268,6 @@ with right_chart:
     )
     st.plotly_chart(figure, use_container_width=True)
 
-with right_chart:
-    figure = go.Figure()
-    for name, frame in scenario_frames.items():
-        figure.add_trace(go.Scatter(x=frame["period"], y=frame["interest_coverage"], mode="lines+markers", name=name))
-    figure.add_hline(y=coverage_minimum, line_dash="dash", line_color="red", annotation_text="Coverage covenant")
-    figure.update_layout(title="Interest coverage forecast", yaxis_title="x", xaxis_title="Month")
-    st.plotly_chart(figure, use_container_width=True)
 
 st.subheader("Investment committee risk report")
 base_end = base.iloc[-1]
