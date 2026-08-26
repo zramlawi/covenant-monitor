@@ -98,6 +98,8 @@ def calculate_metrics(data, frequency):
     result["ebitda_margin_change_bps"] = (
         result["ebitda_margin"].diff() * 10_000
     )
+    result["ebitda_margin"] = result["ebitda"] / result["revenue"].replace(0, np.nan)
+    result["ebitda_margin_change_bps"] = result["ebitda_margin"].diff() * 10_000
 
     return result
 
