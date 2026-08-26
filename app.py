@@ -165,18 +165,58 @@ st.caption(
     "liquidity, and debt-covenant risk."
 )
 with st.sidebar:
-        st.header("Scenario assumptions")
-    leverage_limit = st.number_input("Maximum net leverage (x)", min_value=1.0, max_value=15.0, value=4.75, step=0.25)
-    coverage_minimum = st.number_input("Minimum interest coverage (x)", min_value=0.5, max_value=10.0, value=2.00, step=0.25)
+    st.header("Covenant assumptions")
+    leverage_limit = st.number_input(
+        "Maximum net leverage (x)",
+        min_value=1.0,
+        max_value=15.0,
+        value=4.75,
+        step=0.25,
+    )
+    coverage_minimum = st.number_input(
+        "Minimum interest coverage (x)",
+        min_value=0.5,
+        max_value=10.0,
+        value=2.00,
+        step=0.25,
+    )
 
     st.header("Scenario assumptions")
-    base_growth = st.number_input("Base annual revenue growth (%)", value=6.0, step=1.0) / 100
-    base_margin = st.number_input("Base EBITDA margin change (bps)", value=50, step=25)
-    downside_growth = st.number_input("Downside annual revenue growth (%)", value=0.0, step=1.0) / 100
-    downside_margin = st.number_input("Downside EBITDA margin change (bps)", value=-150, step=25)
-    recovery_growth = st.number_input("Recovery annual revenue growth (%)", value=10.0, step=1.0) / 100
-    recovery_margin = st.number_input("Recovery EBITDA margin change (bps)", value=150, step=25)
-    ar_days_change = st.number_input("Downside A/R days increase", value=15.0, step=1.0)
+    base_growth = st.number_input(
+        "Base annual revenue growth (%)",
+        value=6.0,
+        step=1.0,
+    ) / 100
+    base_margin = st.number_input(
+        "Base EBITDA margin change (bps)",
+        value=50,
+        step=25,
+    )
+    downside_growth = st.number_input(
+        "Downside annual revenue growth (%)",
+        value=0.0,
+        step=1.0,
+    ) / 100
+    downside_margin = st.number_input(
+        "Downside EBITDA margin change (bps)",
+        value=-150,
+        step=25,
+    )
+    recovery_growth = st.number_input(
+        "Recovery annual revenue growth (%)",
+        value=10.0,
+        step=1.0,
+    ) / 100
+    recovery_margin = st.number_input(
+        "Recovery EBITDA margin change (bps)",
+        value=150,
+        step=25,
+    )
+    ar_days_change = st.number_input(
+        "Downside A/R days increase",
+        value=15.0,
+        step=1.0,
+    )
 
 uploaded_file = st.file_uploader(
     "Upload monthly or quarterly financials CSV",
