@@ -89,6 +89,16 @@ def calculate_metrics(data, frequency):
     result["ar_days"] = (
         result["accounts_receivable"] / result["revenue"].replace(0, np.nan) * days_per_period
     )
+
+    result["revenue_qoq_change"] = result["revenue"].pct_change()
+    result["ebitda_qoq_change"] = result["ebitda"].pct_change()
+    result["ebitda_margin"] = (
+        result["ebitda"] / result["revenue"].replace(0, np.nan)
+    )
+    result["ebitda_margin_change_bps"] = (
+        result["ebitda_margin"].diff() * 10_000
+    )
+
     return result
 
 
@@ -218,6 +228,16 @@ with st.sidebar:
         step=1.0,
     )
 
+
+    st.header("Historical view")
+    history_periods = st.slider(
+        "Periods to show",
+        min_value=3,
+        max_value=24,
+        value=8,
+        step=1,
+        help="Choose how many recent months or quarters to show.",
+    )
 uploaded_file = st.file_uploader(
     "Upload monthly or quarterly financials CSV",
     type="csv",
@@ -308,6 +328,45 @@ with right_chart:
     )
     st.plotly_chart(figure, use_container_width=True)
 
+history_label = "quarterly" if frequency == "quarterly" else "monthly"
+st.subheader(f"Historical {history_label} performance")
+
+history = metrics.tail(history_periods).copy()
+history["Period"] = (
+    history["period"].dt.to_period("Q").astype(str)
+    if frequency == "quarterly"
+    else history["period"].dt.strftime("%b %Y")
+)
+history["Revenue"] = history["revenue"].map(format_money)
+history["Revenue QoQ"] = history["revenue_qoq_change"].map(
+    lambda value: "—" if pd.isna(value) else f"{value:.1%}"
+)
+history["EBITDA"] = history["ebitda"].map(format_money)
+history["EBITDA QoQ"] = history["ebitda_qoq_change"].map(
+    lambda value: "—" if pd.isna(value) else f"{value:.1%}"
+)
+history["EBITDA margin"] = history["ebitda_margin"].map(
+    lambda value: "—" if pd.isna(value) else f"{value:.1%}"
+)
+history["Margin change"] = history["ebitda_margin_change_bps"].map(
+    lambda value: "—" if pd.isna(value) else f"{value:.0f} bps"
+)
+
+st.dataframe(
+    history[
+        [
+            "Period",
+            "Revenue",
+            "Revenue QoQ",
+            "EBITDA",
+            "EBITDA QoQ",
+            "EBITDA margin",
+            "Margin change",
+        ]
+    ],
+    use_container_width=True,
+    hide_index=True,
+)
 
 st.subheader("Investment committee risk report")
 base_end = base.iloc[-1]
