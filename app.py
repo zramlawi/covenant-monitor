@@ -219,17 +219,54 @@ st.subheader(f"Scenario outlook: next {forecast_length} {period_name.lower()}s")
 scenario_frames = {"Base": base, "Downside": downside, "Recovery": recovery}
 
 left_chart, right_chart = st.columns(2)
+
 with left_chart:
     figure = go.Figure()
     for name, frame in scenario_frames.items():
-        figure.add_trace(go.Scatter(x=frame["period"], y=frame["net_leverage"], mode="lines+markers", name=name))
-    figure.add_hline(y=leverage_limit, line_dash="dash", line_color="red", annotation_text="Leverage covenant")
-figure.update_layout(
-    title="Interest coverage forecast",
-    yaxis_title="x",
-    xaxis_title=period_name,
-)
-st.plotly_chart(figure, use_container_width=True)
+        figure.add_trace(
+            go.Scatter(
+                x=frame["period"],
+                y=frame["net_leverage"],
+                mode="lines+markers",
+                name=name,
+            )
+        )
+    figure.add_hline(
+        y=leverage_limit,
+        line_dash="dash",
+        line_color="red",
+        annotation_text="Leverage covenant",
+    )
+    figure.update_layout(
+        title="Net leverage forecast",
+        yaxis_title="x",
+        xaxis_title=period_name,
+    )
+    st.plotly_chart(figure, use_container_width=True)
+
+with right_chart:
+    figure = go.Figure()
+    for name, frame in scenario_frames.items():
+        figure.add_trace(
+            go.Scatter(
+                x=frame["period"],
+                y=frame["interest_coverage"],
+                mode="lines+markers",
+                name=name,
+            )
+        )
+    figure.add_hline(
+        y=coverage_minimum,
+        line_dash="dash",
+        line_color="red",
+        annotation_text="Coverage covenant",
+    )
+    figure.update_layout(
+        title="Interest coverage forecast",
+        yaxis_title="x",
+        xaxis_title=period_name,
+    )
+    st.plotly_chart(figure, use_container_width=True)
 
 with right_chart:
     figure = go.Figure()
