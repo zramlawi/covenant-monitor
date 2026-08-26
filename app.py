@@ -89,6 +89,12 @@ def calculate_metrics(data, frequency):
     result["ar_days"] = (
         result["accounts_receivable"] / result["revenue"].replace(0, np.nan) * days_per_period
     )
+
+    result["revenue_qoq_change"] = result["revenue"].pct_change()
+    result["ebitda_qoq_change"] = result["ebitda"].pct_change()
+    result["ebitda_margin"] = result["ebitda"] / result["revenue"].replace(0, np.nan)
+    result["ebitda_margin_change_bps"] = result["ebitda_margin"].diff() * 10_000
+
     return result
 
 
