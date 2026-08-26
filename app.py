@@ -5,8 +5,7 @@ import streamlit as st
 
 st.set_page_config(page_title="Covenant Monitor", page_icon="📊", layout="wide")
 
-REQUIRED_COLUMNS = [
-    "month",
+FINANCIAL_COLUMNS = [
     "revenue",
     "ebitda",
     "cash",
@@ -30,40 +29,76 @@ def format_multiple(value):
 
 def load_data(uploaded_file):
     data = pd.read_csv(uploaded_file)
-    missing = [column for column in REQUIRED_COLUMNS if column not in data.columns]
+
+    has_month = "month" in data.columns
+    has_period_end = "period_end" in data.columns
+    if has_month == has_period_end:
+        st.error(
+            "Provide exactly one date column: `month` for monthly data "
+            "or `period_end` for quarterly data."
+        )
+        return None, None
+
+    frequency = "monthly" if has_month else "quarterly"
+    date_column = "month" if has_month else "period_end"
+    required_columns = [date_column] + FINANCIAL_COLUMNS
+    missing = [column for column in required_columns if column not in data.columns]
     if missing:
         st.error("Missing required columns: " + ", ".join(missing))
-        return None
+        return None, None
 
     data = data.copy()
-    data["month"] = pd.to_datetime(data["month"], errors="coerce")
-    for column in REQUIRED_COLUMNS[1:]:
+    data[date_column] = pd.to_datetime(data[date_column], errors="coerce")
+    for column in FINANCIAL_COLUMNS:
         data[column] = pd.to_numeric(data[column], errors="coerce")
 
-    if data[REQUIRED_COLUMNS].isna().any().any():
+    if data[required_columns].isna().any().any():
         st.error("The CSV has invalid or blank values in required fields.")
-        return None
+        return None, None
 
-    data = data.sort_values("month").drop_duplicates("month").reset_index(drop=True)
+    data = data.sort_values(date_column).drop_duplicates(date_column).reset_index(drop=True)
     if len(data) < 3:
-        st.error("Upload at least three monthly observations.")
-        return None
-    return data.rename(columns={"month": "period"})
+        st.error(f"Upload at least three {frequency} observations.")
+        return None, None
+
+    if frequency == "quarterly":
+        quarters = data[date_column].dt.to_period("Q")
+        if quarters.duplicated().any():
+            st.error("Quarterly data must contain one observation per calendar quarter.")
+            return None, None
+
+    return data.rename(columns={date_column: "period"}), frequency
 
 
-def calculate_metrics(data):
+def calculate_metrics(data, frequency):
     result = data.copy()
-    result["ttm_ebitda"] = result["ebitda"].rolling(12, min_periods=3).sum()
+    trailing_periods = 12 if frequency == "monthly" else 4
+    days_per_period = 30 if frequency == "monthly" else 90
+
+    result["ttm_ebitda"] = result["ebitda"].rolling(
+        trailing_periods,
+        min_periods=min(3, trailing_periods),
+    ).sum()
     result["net_debt"] = (result["total_debt"] - result["cash"]).clip(lower=0)
     result["net_leverage"] = result["net_debt"] / result["ttm_ebitda"].replace(0, np.nan)
-    result["ttm_interest"] = result["interest_expense"].rolling(12, min_periods=3).sum()
+    result["ttm_interest"] = result["interest_expense"].rolling(
+        trailing_periods,
+        min_periods=min(3, trailing_periods),
+    ).sum()
     result["interest_coverage"] = result["ttm_ebitda"] / result["ttm_interest"].replace(0, np.nan)
-    result["ar_days"] = result["accounts_receivable"] / result["revenue"].replace(0, np.nan) * 30
+    result["ar_days"] = (
+        result["accounts_receivable"] / result["revenue"].replace(0, np.nan) * days_per_period
+    )
     return result
 
 
-def forecast(data, revenue_growth, margin_change_bps, ar_days_change, months=6):
+def forecast(data, frequency, revenue_growth, margin_change_bps, ar_days_change, periods=None):
     latest = data.iloc[-1]
+    trailing_periods = 12 if frequency == "monthly" else 4
+    days_per_period = 30 if frequency == "monthly" else 90
+    periods_per_year = 12 if frequency == "monthly" else 4
+    forecast_periods = periods if periods is not None else (6 if frequency == "monthly" else 4)
+
     recent = data.tail(min(3, len(data)))
     revenue = float(recent["revenue"].mean())
     margin = float(recent["ebitda"].sum() / recent["revenue"].sum())
@@ -71,22 +106,31 @@ def forecast(data, revenue_growth, margin_change_bps, ar_days_change, months=6):
     cash = float(latest["cash"])
     debt = float(latest["total_debt"])
     interest = float(recent["interest_expense"].mean())
-    history_ebitda = list(data["ebitda"].tail(11))
+    history_ebitda = list(data["ebitda"].tail(trailing_periods - 1))
     rows = []
 
-    for step in range(1, months + 1):
-        revenue *= 1 + revenue_growth / 12
+    for step in range(1, forecast_periods + 1):
+        revenue *= 1 + revenue_growth / periods_per_year
         scenario_margin = max(0.01, margin + margin_change_bps / 10_000)
         ebitda = revenue * scenario_margin
-        target_ar = revenue * (ar_days + ar_days_change) / 30
+        target_ar = revenue * (ar_days + ar_days_change) / days_per_period
         prior_ar = float(latest["accounts_receivable"]) if step == 1 else rows[-1]["accounts_receivable"]
         working_capital_use = target_ar - prior_ar
         cash = cash + ebitda - interest - working_capital_use
         net_debt = max(0, debt - cash)
-        ttm_ebitda = sum((history_ebitda + [row["ebitda"] for row in rows] + [ebitda])[-12:])
-        ttm_interest = interest * min(12, len(data) + step)
+        ttm_ebitda = sum(
+            (history_ebitda + [row["ebitda"] for row in rows] + [ebitda])[-trailing_periods:]
+        )
+        ttm_interest = interest * min(trailing_periods, len(data) + step)
+
+        period = (
+            latest["period"] + pd.offsets.MonthEnd(step)
+            if frequency == "monthly"
+            else latest["period"] + pd.offsets.QuarterEnd(step)
+        )
+
         rows.append({
-            "period": latest["period"] + pd.offsets.MonthEnd(step),
+            "period": period,
             "revenue": revenue,
             "ebitda": ebitda,
             "cash": cash,
@@ -137,15 +181,21 @@ if uploaded_file is None:
     st.info("Use the included sample_data/summit_facility_services.csv file to explore the app.")
     st.stop()
 
-data = load_data(uploaded_file)
+data, frequency = load_data(uploaded_file)
 if data is None:
     st.stop()
 
-metrics = calculate_metrics(data)
+metrics = calculate_metrics(data, frequency)
 latest = metrics.iloc[-1]
-base = forecast(metrics, base_growth, base_margin, 0)
-downside = forecast(metrics, downside_growth, downside_margin, ar_days_change)
-recovery = forecast(metrics, recovery_growth, recovery_margin, 0)
+base = forecast(metrics, frequency, base_growth, base_margin, 0)
+downside = forecast(
+    metrics,
+    frequency,
+    downside_growth,
+    downside_margin,
+    ar_days_change,
+)
+recovery = forecast(metrics, frequency, recovery_growth, recovery_margin, 0)
 
 st.subheader("Current position")
 col1, col2, col3, col4 = st.columns(4)
